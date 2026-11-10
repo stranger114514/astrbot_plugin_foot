@@ -1,0 +1,7 @@
+name: astrbot_plugin_foot
+display_name: 看看脚
+desc: 看看脚/看看足/看看jio 触发，随机发送明日方舟角色脚臭吧故事 + 脚部裁剪立绘
+version: v2.0.0
+author: stranger114514
+repo: https://github.com/stranger114514/astrbot_plugin_foot
+tags: [明日方舟, 娱乐, 随机, 图片]
