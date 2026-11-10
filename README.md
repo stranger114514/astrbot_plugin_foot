@@ -1,5 +1,5 @@
-看看脚
-
+是啊，吃什么（明日方舟版）
+<img width="1333" height="1293" alt="Screenshot_2026-11-10-19-28-55-188_tv danmaku bil" src="https://github.com/user-attachments/assets/74d4d739-1962-43f0-9213-1a0b1a761f74" />
 一款为 AstrBot 开发的简单整活插件，帮助明日方舟玩家挑选今天美食（bushi）
 
 🎯 功能特点
