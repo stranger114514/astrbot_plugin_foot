@@ -26,7 +26,7 @@ _BARE_RE = r"^看看(?:脚|足|jio)"
 @register(
     "astrbot_plugin_foot",
     "stranger114514",
-    "看看脚/看看足/看看jio 触发，随机发送明日方舟角色脚臭吧故事 + 脚部裁剪立绘",
+    "识别到“看看脚/看看足/看看jio”关键词，随机推荐饭盒（bushi）",
     "2.0.0",
 )
 class FootPlugin(Star):

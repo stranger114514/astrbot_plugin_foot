@@ -1,6 +1,6 @@
 name: astrbot_plugin_foot
-display_name: 看看脚
-desc: 看看脚/看看足/看看jio 触发，随机发送明日方舟角色脚臭吧故事 + 脚部裁剪立绘
+display_name: 是啊，吃什么（明日方舟版）
+desc: 识别到“看看脚/看看足/看看jio”关键词，随机推荐饭盒（bushi）
 version: v2.0.0
 author: stranger114514
 repo: https://github.com/stranger114514/astrbot_plugin_foot
