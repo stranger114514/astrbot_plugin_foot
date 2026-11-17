@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>图库与文案</title>
+<style>
+  :root {
+    --bg:#0b0e13; --bg2:#0e1420; --panel:#141926; --panel2:#1a2130;
+    --line:#2c3648; --line2:#3a465c;
+    --text:#e6eaf2; --muted:#8d98ae; --faint:#5f6b82;
+    --gold:#e8b45a; --gold2:#ffd98a; --cyan:#5b8def;
+    --ok:#4fc39a; --danger:#e15656;
+    --shadow:rgba(0,0,0,.55);
+  }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; }
+  body {
+    font-family:"HarmonyOS Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+    background:
+      radial-gradient(1200px 600px at 50% -10%, #16202f 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 100%, #101a2a 0%, transparent 55%),
+      var(--bg);
+    color:var(--text);
+    overflow-y:auto;
+  }
+  body::before {
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background:repeating-linear-gradient(0deg, transparent 0 2px, rgba(255,255,255,.012) 2px 4px);
+  }
+  .wrap { position:relative; z-index:1; max-width:1200px; margin:0 auto; padding:26px 24px 60px; }
+
+  header { margin-bottom:20px; border-bottom:1px solid var(--line); padding-bottom:16px; }
+  .kicker {
+    display:flex; align-items:center; gap:10px; margin-bottom:8px;
+    color:var(--cyan); font-size:12px; letter-spacing:3px; font-weight:600;
+  }
+  .kicker .bar { width:34px; height:1px; background:var(--cyan); }
+  h1 {
+    margin:0 0 6px; font-size:28px; font-weight:800; letter-spacing:1px;
+    background:linear-gradient(180deg,#fff 0%,#c9d4e8 100%);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  }
+  .sub { color:var(--muted); font-size:13px; }
+
+  /* tab 导航 */
+  .tabs { display:flex; gap:10px; margin:16px 0 18px; border-bottom:1px solid var(--line); }
+  .tab {
+    padding:9px 18px; cursor:pointer; font-size:14px; font-weight:600; color:var(--muted);
+    border:none; background:transparent; border-bottom:2px solid transparent; transition:.2s;
+  }
+  .tab:hover { color:var(--text); }
+  .tab.active { color:var(--gold); border-bottom-color:var(--gold); }
+
+  .toolbar { display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; align-items:center; }
+  button {
+    background:var(--panel); color:var(--text); border:1px solid var(--line);
+    padding:8px 16px; border-radius:8px; cursor:pointer; font-size:13px; transition:.2s;
+  }
+  button:hover { border-color:var(--gold); color:var(--gold); }
+  button.primary { background:linear-gradient(135deg,#d99a3e,#b97a24); color:#1a1206; border:none; font-weight:700; }
+  button.primary:hover { filter:brightness(1.1); }
+  button.ghost { background:transparent; }
+  button.ok { color:var(--ok); border-color:var(--ok); }
+  button.danger { color:var(--danger); border-color:var(--danger); }
+  .hint { color:var(--muted); font-size:13px; }
+
+  .cls { display:inline-block; padding:2px 9px; border-radius:5px; font-size:12px; font-weight:600; }
+  .cls-术师 { background:rgba(255,138,60,.14); color:#ff9a52; }
+  .cls-近卫 { background:rgba(225,58,58,.14); color:#ef6b6b; }
+  .cls-狙击 { background:rgba(74,168,255,.14); color:#6fb4ff; }
+  .cls-医疗 { background:rgba(67,197,158,.14); color:#5fd4ab; }
+  .cls-重装 { background:rgba(242,214,75,.14); color:#f0d76b; }
+  .cls-特种 { background:rgba(138,108,242,.14); color:#a58ef5; }
+  .cls-先锋 { background:rgba(210,74,74,.14); color:#e57878; }
+  .cls-辅助 { background:rgba(74,138,224,.14); color:#7aa4e8; }
+
+  .addform { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:18px; display:none; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .full { grid-column:1/-1; }
+  .label { color:var(--muted); font-size:12px; margin-bottom:4px; }
+  input, textarea {
+    background:#0f1420; border:1px solid var(--line); color:var(--text);
+    border-radius:7px; padding:9px 10px; font-size:13px; width:100%;
+  }
+  input:focus, textarea:focus { outline:none; border-color:var(--gold); }
+  textarea { resize:vertical; min-height:52px; }
+  .row { display:flex; gap:8px; }
+
+  /* 图库卡片 */
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:16px; }
+  .card {
+    position:relative; background:linear-gradient(180deg,var(--panel),var(--bg2));
+    border:1px solid var(--line); border-radius:13px; padding:14px; display:flex; flex-direction:column; gap:10px;
+    transition:border-color .2s, transform .2s;
+  }
+  .card:hover { border-color:var(--line2); transform:translateY(-2px); }
+  .card.removed { opacity:.45; }
+  .card::before {
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px;
+    background:linear-gradient(180deg,var(--gold),transparent 70%); border-radius:13px 0 0 13px;
+  }
+  .top { display:flex; gap:12px; align-items:center; }
+  .thumb { width:60px; height:60px; object-fit:cover; border-radius:9px; background:#0f1420; flex-shrink:0; border:1px solid var(--line); }
+  .meta { flex:1; min-width:0; }
+  .meta .name { font-size:16px; font-weight:700; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .meta .src { color:var(--faint); font-size:11px; margin-top:3px; }
+
+  /* 排行卡片 */
+  .rgrid { display:grid; gap:18px; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); }
+  .dossier {
+    position:relative; background:linear-gradient(180deg,var(--panel),var(--bg2));
+    border:1px solid var(--line); border-radius:14px; overflow:hidden; cursor:pointer;
+    box-shadow:0 10px 26px var(--shadow); transition:transform .25s, border-color .25s;
+    display:flex; flex-direction:column;
+  }
+  .dossier:hover { transform:translateY(-4px); border-color:var(--line2); }
+  .dossier::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:linear-gradient(180deg,var(--gold),transparent 70%); }
+  .dossier-head { padding:14px 16px 10px; border-bottom:1px solid var(--line); background:linear-gradient(180deg, rgba(232,180,90,.06), transparent); }
+  .dossier-head .rh { font-size:10px; letter-spacing:2px; color:var(--faint); margin-bottom:5px; }
+  .gname { font-size:19px; font-weight:800; }
+  .gmeta { color:var(--muted); font-size:12px; margin-top:3px; }
+  .gmeta b { color:var(--gold); }
+  .ranklist { flex:1; padding:9px 12px 12px; overflow-y:auto; max-height:300px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+  .ranklist::-webkit-scrollbar { width:6px; }
+  .ranklist::-webkit-scrollbar-thumb { background:var(--line); border-radius:3px; }
+  .rrow { display:flex; align-items:center; gap:12px; padding:8px 10px; border-radius:9px; margin-bottom:3px; transition:background .2s; }
+  .rrow:hover { background:var(--panel2); }
+  .idx { width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; position:relative; color:var(--muted); }
+  .idx::before { content:""; position:absolute; inset:3px; background:var(--panel2); border:1px solid var(--line2); transform:rotate(45deg); border-radius:4px; }
+  .idx span { position:relative; z-index:1; }
+  .rrow.top1 .idx::before { background:linear-gradient(135deg,#ffd98a,#c8892c); border-color:#ffd98a; }
+  .rrow.top1 .idx span { color:#1a1206; }
+  .rrow.top2 .idx::before { background:linear-gradient(135deg,#e8eef8,#9aa7bc); border-color:#c9d4e8; }
+  .rrow.top2 .idx span { color:#141a24; }
+  .rrow.top3 .idx::before { background:linear-gradient(135deg,#f0b98a,#b06a3a); border-color:#e0a878; }
+  .rrow.top3 .idx span { color:#1d0f04; }
+  .nm { flex:1; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sc { font-weight:800; font-size:15px; color:var(--gold); }
+  .empty { color:var(--muted); font-size:13px; padding:16px; text-align:center; }
+
+  footer {
+    position:fixed; left:0; right:0; bottom:0; z-index:20;
+    background:rgba(11,14,19,.82); backdrop-filter:blur(10px);
+    border-top:1px solid var(--line); padding:11px 24px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .pagesize { display:flex; align-items:center; gap:8px; color:var(--muted); font-size:13px; }
+  .pagesize select { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:7px; padding:5px 8px; font-size:13px; cursor:pointer; }
+  .pager { margin-left:auto; display:flex; align-items:center; gap:8px; }
+  .pager button { padding:6px 14px; }
+  .pager button:disabled { opacity:.35; cursor:default; }
+  .pager .pageinfo { color:var(--muted); font-size:13px; min-width:70px; text-align:center; }
+
+  .toast { position:fixed; bottom:22px; right:22px; background:var(--ok); color:#0a1f12; padding:11px 18px; border-radius:8px; font-size:13px; display:none; z-index:50; font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker"><span class="bar"></span>RHODES ISLAND // ARCHIVE</div>
+    <h1>图库与文案</h1>
+    <div class="sub">管理图库、配套文字与群聊积分排行</div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-section="gallery" onclick="switchSection('gallery')">图库与文案</button>
+    <button class="tab" data-section="ranking" onclick="switchSection('ranking')">积分排行</button>
+  </div>
+
+  <!-- 图库 section -->
+  <section id="sec-gallery">
+    <div class="toolbar">
+      <button class="primary" id="btnAdd">＋ 新增角色</button>
+      <button class="ghost" onclick="load()">刷新</button>
+      <span class="hint" id="kwHint"></span>
+    </div>
+
+    <div class="addform" id="addForm">
+      <div class="grid2">
+        <div><div class="label">角色名</div><input id="addName" placeholder="例如：阿米娅"></div>
+        <div><div class="label">职业</div><input id="addCls" placeholder="例如：术师"></div>
+        <div class="full"><div class="label">配套文字（故事）</div><textarea id="addStory" placeholder="一段风味描述，留空则用通用模板"></textarea></div>
+        <div class="full"><div class="label">口感/气味</div><input id="addTaste" placeholder="例如：尝起来香香软软的。留空则随机"></div>
+        <div class="full"><div class="label">图片（可选）</div><input type="file" id="addImg" accept="image/*"></div>
+        <div class="full row"><button class="primary" onclick="addChar()">保存</button><button class="ghost" onclick="toggleAdd()">取消</button></div>
+      </div>
+    </div>
+
+    <div class="grid" id="list"></div>
+  </section>
+
+  <!-- 排行 section -->
+  <section id="sec-ranking" style="display:none">
+    <div class="rgrid" id="rgrid"><div class="empty">正在调取档案…</div></div>
+  </section>
+</div>
+
+<footer id="rankingFooter" style="display:none">
+  <div class="pagesize">每页档案
+    <select id="pageSize"><option value="10" selected>10</option><option value="20">20</option><option value="100">100</option></select> 份
+  </div>
+  <div class="pager">
+    <button id="prevBtn">‹ 上一页</button>
+    <span class="pageinfo" id="pageInfo">1 / 1</span>
+    <button id="nextBtn">下一页 ›</button>
+  </div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const bridge = () => window.AstrBotPluginPage;
+
+// ── 通用 ────────────────────────────────
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';clearTimeout(t._t);t._t=setTimeout(()=>t.style.display='none',2200);}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+// ── tab 切换 ─────────────────────────────
+function switchSection(section){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.section===section));
+  document.getElementById('sec-gallery').style.display = section==='gallery'?'block':'none';
+  document.getElementById('sec-ranking').style.display = section==='ranking'?'block':'none';
+  document.getElementById('rankingFooter').style.display = section==='ranking'?'flex':'none';
+  if(section==='ranking' && !rankingLoaded) loadRanking();
+}
+
+// ── 图库 ────────────────────────────────
+let chars = [];
+function clsTag(cls){const c=esc(cls||'');const key=c?c.replace(/\s/g,''):'';return `<span class="cls cls-${key}">${c||'未知'}</span>`;}
+
+async function load(){
+  try{
+    const d = await bridge().apiGet('characters');
+    chars = (d && d.characters) || [];
+    document.getElementById('kwHint').textContent = '当前唤醒词：' + ((d && d.keywords) || []).join(' / ');
+    render(); loadThumbs();
+  }catch(e){ toast('加载失败：' + (e && e.message)); }
+}
+
+function render(){
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+  for(const c of chars){
+    const card = document.createElement('div');
+    card.className = 'card' + (c.removed ? ' removed' : '');
+    card.innerHTML = `
+      <div class="top">
+        <img class="thumb" data-name="${esc(c.name)}" src="" onerror="this.style.visibility='hidden'">
+        <div class="meta">
+          <div class="name">${esc(c.name)} ${clsTag(c.cls)}</div>
+          <div class="src">${c.builtin?'内置':'自定义'} · ${esc(c.file||'无图')}</div>
+        </div>
+      </div>
+      <div><div class="label">故事</div><textarea id="story-${esc(c.name)}">${esc(c.story)}</textarea></div>
+      <div><div class="label">口感/气味</div><input id="taste-${esc(c.name)}" value="${esc(c.taste)}"></div>
+      <div class="row">
+        <button class="ok" onclick="saveChar('${esc(c.name)}')">保存文案</button>
+        ${c.removed?`<button onclick="restoreChar('${esc(c.name)}')">恢复</button>`:`<button class="danger" onclick="removeChar('${esc(c.name)}')">移除</button>`}
+      </div>`;
+    list.appendChild(card);
+  }
+}
+
+async function loadThumbs(){
+  for(const c of chars){
+    if(!c.file) continue;
+    try{
+      const d = await bridge().apiGet('image-data', { name: c.file });
+      if(d && d.url){ const img = document.querySelector(`img.thumb[data-name="${esc(c.name)}"]`); if(img) img.src = d.url; }
+    }catch(e){}
+  }
+}
+
+async function saveChar(name){
+  const story = document.getElementById('story-' + name).value;
+  const taste = document.getElementById('taste-' + name).value;
+  try{ await bridge().apiPost('update', { name, story, taste }); toast('已保存：' + name); }
+  catch(e){ toast('保存失败：' + (e && e.message)); }
+}
+
+function toggleAdd(){ const f=document.getElementById('addForm'); f.style.display = f.style.display==='none'?'block':'none'; }
+
+async function addChar(){
+  const name=document.getElementById('addName').value.trim();
+  const cls=document.getElementById('addCls').value.trim();
+  const story=document.getElementById('addStory').value.trim();
+  const taste=document.getElementById('addTaste').value.trim();
+  const file=document.getElementById('addImg').files[0];
+  if(!name){ toast('请填角色名'); return; }
+  let image='';
+  if(file){ image = await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>res('');r.readAsDataURL(file);}); }
+  try{
+    await bridge().apiPost('add', { name, cls, story, taste, image });
+    toast('已新增：' + name);
+    ['addName','addCls','addStory','addTaste','addImg'].forEach(id=>document.getElementById(id).value='');
+    await load();
+  }catch(e){ toast('新增失败：' + (e && e.message)); }
+}
+
+async function removeChar(name){
+  if(!confirm('确定移除「' + name + '」？')) return;
+  try{ await bridge().apiPost('remove', { name }); toast('已移除：' + name); await load(); }
+  catch(e){ toast('移除失败：' + (e && e.message)); }
+}
+
+async function restoreChar(name){
+  try{ await bridge().apiPost('restore', { name }); toast('已恢复：' + name); await load(); }
+  catch(e){ toast('恢复失败：' + (e && e.message)); }
+}
+
+// ── 排行 ────────────────────────────────
+let groups = [], page = 0, pageSize = 10, rankingLoaded = false;
+function badge(i){ return i<=2 ? '◆' : (i+1); }
+
+function rankListHTML(ranking){
+  if(!ranking || !ranking.length) return '<div class="empty">暂无有效积分</div>';
+  return ranking.map((r,i)=>{
+    const nm=r[0]||'未知', sc=r[1], cls=i<3?' top'+(i+1):'';
+    return `<div class="rrow${cls}"><div class="idx"><span>${badge(i)}</span></div><div class="nm">${esc(nm)}</div><div class="sc">${sc}</div></div>`;
+  }).join('');
+}
+
+function totalPages(){ return Math.max(1, Math.ceil(groups.length / pageSize)); }
+
+function renderRanking(){
+  const total = totalPages();
+  if(page >= total) page = total - 1;
+  if(page < 0) page = 0;
+  const slice = groups.slice(page*pageSize, page*pageSize+pageSize);
+  const $rgrid = document.getElementById('rgrid');
+  if(!slice.length){
+    $rgrid.innerHTML = '<div class="empty" style="grid-column:1/-1">暂无群聊积分档案，去群里发 /猜角色 玩一局吧</div>';
+  }else{
+    $rgrid.innerHTML = slice.map(g=>{
+      const best = g.ranking && g.ranking.length ? g.ranking[0][1] : 0;
+      return `<div class="dossier">
+        <div class="dossier-head">
+          <div class="rh">PROFILE · ${esc(g.group_id)}</div>
+          <div class="gname">${esc(g.group_name)}</div>
+          <div class="gmeta"><b>${g.ranking.length}</b> 人上榜${best?' · 榜首 <b>'+best+'</b> 分':''}</div>
+        </div>
+        <div class="ranklist">${rankListHTML(g.ranking)}</div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('pageInfo').textContent = (total? page+1:0) + ' / ' + total;
+  document.getElementById('prevBtn').disabled = page <= 0;
+  document.getElementById('nextBtn').disabled = page >= total - 1;
+}
+
+async function loadRanking(){
+  try{
+    const d = await bridge().apiGet('ranking');
+    groups = (d && d.groups) || [];
+    rankingLoaded = true;
+    renderRanking();
+  }catch(e){
+    document.getElementById('rgrid').innerHTML = '<div class="empty">档案调取失败：'+esc(e&&e.message)+'</div>';
+  }
+}
+
+document.getElementById('pageSize').addEventListener('change', e=>{ pageSize=parseInt(e.target.value,10); page=0; renderRanking(); });
+document.getElementById('prevBtn').addEventListener('click', ()=>{ if(page>0){page--;renderRanking();} });
+document.getElementById('nextBtn').addEventListener('click', ()=>{ if(page<totalPages()-1){page++;renderRanking();} });
+
+// 档案内滚轮只滚档案内列表
+document.getElementById('rgrid').addEventListener('wheel', e=>{
+  const rl = e.target.closest('.ranklist');
+  if(rl && rl.scrollHeight > rl.clientHeight){
+    const atTop = rl.scrollTop<=0 && e.deltaY<0;
+    const atBottom = rl.scrollTop+rl.clientHeight >= rl.scrollHeight-1 && e.deltaY>0;
+    if(!(atTop||atBottom)){ e.stopPropagation(); }
+  }
+},{passive:false});
+
+(function init(){
+  const b = bridge();
+  if(!b){ setTimeout(init, 100); return; }
+  Promise.resolve(b.ready ? b.ready() : null).then(()=>load()).catch(()=>load());
+})();
+</script>
+</body>
+</html>

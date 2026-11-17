@@ -1,0 +1,10 @@
+{
+  "pages": {
+    "dashboard": {
+      "title": "图库与文案"
+    },
+    "ranking": {
+      "title": "积分排行"
+    }
+  }
+}

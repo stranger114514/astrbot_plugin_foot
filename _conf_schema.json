@@ -1,2 +1,7 @@
 {
+  "keywords": {
+    "description": "唤醒词",
+    "type": "list",
+    "default": ["看看脚", "看看足", "看看jio"]
+  }
 }
