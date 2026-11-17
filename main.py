@@ -69,7 +69,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图",
-    "2.2.0",
+    "2.2.1",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
