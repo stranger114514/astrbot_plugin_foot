@@ -2,6 +2,8 @@ import base64
 import json
 from pathlib import Path
 
+from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
+
 
 def _d(s: str) -> str:
     """decode."""
@@ -22,9 +24,12 @@ def _d(s: str) -> str:
 # 默认唤醒关键词（配置里可覆盖/追加）
 DEFAULT_KEYWORDS = ["看看脚", "看看足", "看看jio"]
 
-# 图库持久化文件：data/gallery.json
-GALLERY_DIR = Path(__file__).parent / "data"
+# 图库持久化文件：data/plugin_data/astrbot_plugin_foot/gallery.json
+GALLERY_DIR = Path(get_astrbot_plugin_data_path()) / "astrbot_plugin_foot"
 GALLERY_PATH = GALLERY_DIR / "gallery.json"
+
+# 旧位置（插件目录内 data/gallery.json），用于一次性迁移
+_LEGACY_GALLERY_PATH = Path(__file__).parent / "data" / "gallery.json"
 
 # 允许上传的图片扩展名
 ALLOWED_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp"}
@@ -941,6 +946,15 @@ def _default_gallery() -> dict:
 
 def load_gallery() -> dict:
     """读取面板编辑的图库配置；文件不存在或损坏时返回默认结构。"""
+    # 旧位置（插件目录内）迁移到持久化目录
+    if _LEGACY_GALLERY_PATH.exists() and not GALLERY_PATH.exists():
+        try:
+            GALLERY_DIR.mkdir(parents=True, exist_ok=True)
+            GALLERY_PATH.write_text(
+                _LEGACY_GALLERY_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+            )
+        except Exception:
+            pass
     if GALLERY_PATH.exists():
         try:
             data = json.loads(GALLERY_PATH.read_text(encoding="utf-8"))

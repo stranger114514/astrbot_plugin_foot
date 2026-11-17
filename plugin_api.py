@@ -18,6 +18,7 @@ from pathlib import Path
 from quart import jsonify, request
 
 from astrbot.api import logger
+from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 from .data import (
     CHAR_ROWS,
@@ -39,6 +40,11 @@ class FootAPI:
     @property
     def _image_dir(self) -> Path:
         return self.plugin.image_dir
+
+    @property
+    def _uploads_dir(self) -> Path:
+        """用户上传图片的持久化目录（卸载/升级插件不丢失）。"""
+        return Path(get_astrbot_plugin_data_path()) / PLUGIN_NAME / "uploads"
 
     # ── 注册 ──────────────────────────────────────────
 
@@ -113,7 +119,10 @@ class FootAPI:
         # 内置文件名是 .png 但裁剪图实际存成 .jpg；统一按 .jpg 读取
         img = (self._image_dir / name).with_suffix(".jpg")
         if not img.is_file():
-            return jsonify({"success": False, "error": "文件不存在"}), 404
+            # 用户上传的图片在持久化目录
+            img = self._uploads_dir / name
+            if not img.is_file():
+                return jsonify({"success": False, "error": "文件不存在"}), 404
         raw = img.read_bytes()
         return jsonify({
             "success": True,
@@ -163,7 +172,8 @@ class FootAPI:
                 return jsonify({"success": False, "error": "图片数据无效"}), 400
             filename = f"{uuid.uuid4().hex[:12]}.jpg"
             try:
-                (self._image_dir / filename).write_bytes(raw)
+                self._uploads_dir.mkdir(parents=True, exist_ok=True)
+                (self._uploads_dir / filename).write_bytes(raw)
             except Exception as exc:
                 logger.warning(f"[FootAPI] 图片写入失败: {exc}")
                 return jsonify({"success": False, "error": "图片保存失败"}), 500
