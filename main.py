@@ -59,8 +59,8 @@ END_KEYWORDS = {"结束", "结束游戏", "不玩了", "结算", "认输"}
 TIP_KEYWORDS = {"提示", "给个提示", "要提示", "来点提示", "hint", "提示一下"}
 
 # ── 抢答模式参数 ──────────────────────────────
-QUIZ_WAKE = "人事部档案审核"
-QUIZ_ALIASES = {"档案审核", "人事部审核", "抢答"}
+QUIZ_WAKE = "人事部档案审查"
+QUIZ_ALIASES = {"人事部档案审核", "档案审查", "档案审核"}
 QUIZ_POINTS = 3              # 抢答答对固定 +3 分
 QUIZ_TITLES = ["巴别塔恶灵", "精英博士", "牛马博士"]
 QUIZ_DEFAULT_TITLE = "普通博士"
@@ -78,8 +78,8 @@ _pending_settlements: dict[str, str] = {}
 @register(
     "astrbot_plugin_foot",
     "yg",
-    "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审核抢答",
-    "2.3.1",
+    "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
+    "2.3.2",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -175,29 +175,22 @@ class FootPlugin(Star):
         )
 
     # ════════════════════════════════════════════
-    # 抢答模式：人事部档案审核
+    # 抢答模式：人事部档案审查
     # ════════════════════════════════════════════
 
     @filter.command(QUIZ_WAKE, alias=QUIZ_ALIASES)
     async def quiz_start(self, event: AstrMessageEvent):
         yield event.plain_result(self._start_quiz(event))
 
-    @filter.regex(r"^人事部档案审核")
-    async def quiz_bare(self, event: AstrMessageEvent):
-        # 命令形式已由 quiz_start 处理，这里只管裸发
-        if getattr(event, "is_at_or_wake_command", False):
-            return
-        yield event.plain_result(self._start_quiz(event))
-
     def _start_quiz(self, event: AstrMessageEvent) -> str:
         """开局：登记抢答状态，返回欢迎语。"""
         group_id = event.get_group_id()
         if not group_id:
-            return "人事部档案审核只在群聊里进行哦"
+            return "人事部档案审查只在群聊里进行哦"
         if group_id in _quiz_games:
-            return "本群已有一场档案审核在进行中，等它结束再开新的一场吧"
+            return "本群已有一场档案审查在进行中，等它结束再开新的一场吧"
         if group_id in _games:
-            return "本群还有一局猜角色在进行中，先结束它再开档案审核吧"
+            return "本群还有一局猜角色在进行中，先结束它再开档案审查吧"
 
         _quiz_games[group_id] = {
             "group_id": group_id,
@@ -213,7 +206,7 @@ class FootPlugin(Star):
             "tips_used": set(),
         }
         return (
-            "📋 人事部档案审核开始！全员可参与，回复选择玩法：\n"
+            "📋 人事部档案审查开始！全员可参与，回复选择玩法：\n"
             "「看图」= 只看立绘猜\n"
             "「描述」= 看图 + 描述猜\n"
             f"第一个答对的 +{QUIZ_POINTS} 分并进入下一题\n"
@@ -302,7 +295,7 @@ class FootPlugin(Star):
         mode_name = "看图" if quiz.get("mode") == "image" else "描述"
 
         lines = []
-        lines.append("⏰ 时间到，人事部档案审核结束！" if timed_out else "📋 人事部档案审核结束！")
+        lines.append("⏰ 时间到，人事部档案审查结束！" if timed_out else "📋 人事部档案审查结束！")
         lines.append(f"本场玩法：{mode_name}模式")
         if answer:
             lines.append(f"最后一题未答出的角色是：{answer}")
