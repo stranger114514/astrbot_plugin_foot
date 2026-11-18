@@ -79,7 +79,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
-    "2.3.2",
+    "2.3.3",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -211,7 +211,7 @@ class FootPlugin(Star):
             "「描述」= 看图 + 描述猜\n"
             f"第一个答对的 +{QUIZ_POINTS} 分并进入下一题\n"
             "每题限时 2 分钟，答错不会有回应，可以继续抢答\n"
-            "发「提示」给线索（不扣分），发「结束」可随时结算授予称号"
+            "发「提示」给线索（不扣分），发「结束」可随时结算"
         )
 
     def _quiz_select(self, quiz, text) -> list:
@@ -280,7 +280,7 @@ class FootPlugin(Star):
         return []
 
     def _quiz_finish(self, quiz, timed_out: bool) -> str:
-        """抢答模式结算：授予称号，不写入积分榜单。"""
+        """抢答模式结算：按名次列出称号，不写入积分榜单。"""
         group_id = quiz["group_id"]
         if group_id not in _quiz_games or _quiz_games[group_id] is not quiz:
             return ""
@@ -307,7 +307,6 @@ class FootPlugin(Star):
 
         icons = {1: "👑", 2: "⭐", 3: "🐴"}
         lines.append("")
-        lines.append("🏅 称号授予：")
         for i, (uid, rec) in enumerate(entries, 1):
             if i <= len(QUIZ_TITLES):
                 title = QUIZ_TITLES[i - 1]
@@ -318,7 +317,7 @@ class FootPlugin(Star):
             lines.append(f"{icon} {title}：{rec['name']}（{rec['score']} 分）")
 
         lines.append("")
-        lines.append("（本场不计入积分榜单，称号仅本次结算授予）")
+        lines.append("（本场不计入积分榜单）")
         return "\n".join(lines)
 
     async def _quiz_on_timeout(self, quiz):
