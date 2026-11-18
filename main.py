@@ -55,12 +55,16 @@ ANSWER_TIMEOUT = 120         # 每道题限时（秒）
 POINTS_IMAGE = 5             # 看图猜角色，答对一题 +5
 POINTS_DESC = 3              # 图+描述猜角色，答对一题 +3
 SELECT_MODE_KEYWORDS = {"看图", "描述", "图", "文字", "文字描述", "带描述"}
+# 选玩法阶段说这些词，会询问是否切到抢答模式
+SWITCH_QUIZ_KEYWORDS = {"抢答", "抢答模式", "档案审查", "档案审核", "人事部档案审查"}
+CONFIRM_KEYWORDS = {"确定", "确认", "是", "好", "好的", "要", "切换", "切", "换"}
+CANCEL_KEYWORDS = {"取消", "不", "不要", "算了", "否", "继续", "不了"}
 END_KEYWORDS = {"结束", "结束游戏", "不玩了", "结算", "认输"}
 TIP_KEYWORDS = {"提示", "给个提示", "要提示", "来点提示", "hint", "提示一下"}
 
 # ── 抢答模式参数 ──────────────────────────────
 QUIZ_WAKE = "人事部档案审查"
-QUIZ_ALIASES = {"人事部档案审核", "档案审查", "档案审核"}
+QUIZ_ALIASES = {"人事部档案审核", "档案审查", "档案审核", "抢答"}
 QUIZ_POINTS = 3              # 抢答答对固定 +3 分
 QUIZ_TITLES = ["巴别塔恶灵", "精英博士", "牛马博士"]
 QUIZ_DEFAULT_TITLE = "普通博士"
@@ -79,7 +83,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
-    "2.3.3",
+    "2.3.4",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -442,6 +446,28 @@ class FootPlugin(Star):
         if getattr(event, "is_at_or_wake_command", False):
             return
 
+        # 等待确认是否切到抢答模式
+        if game["stage"] == "confirm_switch":
+            if text in CONFIRM_KEYWORDS:
+                # 结束当前猜角色（不结算、不记分），转抢答模式
+                self._cancel_timeout(game)
+                _games.pop(group_id, None)
+                msg = self._start_quiz(event)
+                yield event.plain_result("已结束猜角色，切换到抢答模式\n\n" + msg)
+                return
+            if text in CANCEL_KEYWORDS:
+                game["stage"] = "select_mode"
+                yield event.plain_result("好，继续猜角色。请回复「看图」或「描述」选择玩法")
+                return
+            # 直接回玩法词也算继续猜角色
+            if text in SELECT_MODE_KEYWORDS:
+                game["stage"] = "select_mode"
+                for chain in self._handle_select(game, text):
+                    yield event.chain_result(chain)
+                return
+            yield event.plain_result("请回复「确定」切换到抢答模式，或回复「取消」继续猜角色")
+            return
+
         if game["stage"] == "select_mode":
             chains = self._handle_select(game, text)
         elif game["stage"] == "guessing":
@@ -456,6 +482,14 @@ class FootPlugin(Star):
 
     def _handle_select(self, game, text) -> list:
         """处理玩法选择，返回待发送的消息链列表。"""
+        # 选玩法阶段说「抢答」：先确认是否切到抢答模式
+        if text in SWITCH_QUIZ_KEYWORDS:
+            game["stage"] = "confirm_switch"
+            return [[Comp.Plain(
+                "要切换到「人事部档案审查」抢答模式吗？\n"
+                "回复「确定」切换（当前这局猜角色会结束，全员可参与）\n"
+                "回复「取消」继续猜角色"
+            )]]
         if text in SELECT_MODE_KEYWORDS:
             if text in ("看图", "图"):
                 game["mode"] = "image"
