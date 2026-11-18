@@ -58,8 +58,18 @@ SELECT_MODE_KEYWORDS = {"看图", "描述", "图", "文字", "文字描述", "�
 END_KEYWORDS = {"结束", "结束游戏", "不玩了", "结算", "认输"}
 TIP_KEYWORDS = {"提示", "给个提示", "要提示", "来点提示", "hint", "提示一下"}
 
+# ── 抢答模式参数 ──────────────────────────────
+QUIZ_WAKE = "人事部档案审核"
+QUIZ_ALIASES = {"档案审核", "人事部审核", "抢答"}
+QUIZ_POINTS = 3              # 抢答答对固定 +3 分
+QUIZ_TITLES = ["巴别塔恶灵", "精英博士", "牛马博士"]
+QUIZ_DEFAULT_TITLE = "普通博士"
+
 # 活动状态（内存）：group_id -> game dict
 _games: dict[str, dict] = {}
+
+# 抢答模式状态（内存）：group_id -> quiz dict（不计入积分榜单）
+_quiz_games: dict[str, dict] = {}
 
 # 待补发的结算消息：group_id -> 结算文本（超时主动发送失败时暂存，下次玩家发消息补发）
 _pending_settlements: dict[str, str] = {}
@@ -68,8 +78,8 @@ _pending_settlements: dict[str, str] = {}
 @register(
     "astrbot_plugin_foot",
     "yg",
-    "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图",
-    "2.2.1",
+    "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审核抢答",
+    "2.3.0",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -164,6 +174,180 @@ class FootPlugin(Star):
             "发「结束」可随时结算"
         )
 
+    # ════════════════════════════════════════════
+    # 抢答模式：人事部档案审核
+    # ════════════════════════════════════════════
+
+    @filter.command(QUIZ_WAKE, alias=QUIZ_ALIASES)
+    async def quiz_start(self, event: AstrMessageEvent):
+        yield event.plain_result(self._start_quiz(event))
+
+    @filter.regex(r"^人事部档案审核")
+    async def quiz_bare(self, event: AstrMessageEvent):
+        # 命令形式已由 quiz_start 处理，这里只管裸发
+        if getattr(event, "is_at_or_wake_command", False):
+            return
+        yield event.plain_result(self._start_quiz(event))
+
+    def _start_quiz(self, event: AstrMessageEvent) -> str:
+        """开局：登记抢答状态，返回欢迎语。"""
+        group_id = event.get_group_id()
+        if not group_id:
+            return "人事部档案审核只在群聊里进行哦"
+        if group_id in _quiz_games:
+            return "本群已有一场档案审核在进行中，等它结束再开新的一场吧"
+        if group_id in _games:
+            return "本群还有一局猜角色在进行中，先结束它再开档案审核吧"
+
+        _quiz_games[group_id] = {
+            "group_id": group_id,
+            "starter_id": event.get_sender_id(),
+            "starter_name": event.get_sender_name() or event.get_sender_id(),
+            "session": event.unified_msg_origin,
+            "event": event,
+            "stage": "select_mode",
+            "mode": None,
+            "current": None,
+            "timeout_task": None,
+            "scores": {},        # user_id -> {"name": str, "score": int, "order": int}
+            "tips_used": set(),
+        }
+        return (
+            "📋 人事部档案审核开始！全员可参与，回复选择玩法：\n"
+            "「看图」= 只看立绘猜\n"
+            "「描述」= 看图 + 描述猜\n"
+            f"第一个答对的 +{QUIZ_POINTS} 分并进入下一题\n"
+            "每题限时 2 分钟，答错不会有回应，可以继续抢答\n"
+            "发「提示」给线索（不扣分），发「结束」可随时结算授予称号"
+        )
+
+    def _quiz_select(self, quiz, text) -> list:
+        """抢答模式：选择玩法后出第一题。"""
+        if text in SELECT_MODE_KEYWORDS:
+            quiz["mode"] = "image" if text in ("看图", "图") else "desc"
+            quiz["stage"] = "quizzing"
+            quiz["scores"] = {}
+            quiz["tips_used"] = set()
+            return [self._quiz_ask(quiz)]
+        return [[Comp.Plain("请回复「看图」或「描述」选择玩法")]]
+
+    def _quiz_ask(self, quiz) -> list:
+        """抢答模式出题：随机角色，看图 / 图+描述。"""
+        char = random.choice(self.characters)
+        quiz["current"] = char
+        quiz["tips_used"] = set()
+        self._cancel_timeout(quiz)
+        quiz["timeout_task"] = asyncio.create_task(self._quiz_on_timeout(quiz))
+
+        chain = []
+        if quiz["mode"] != "image":
+            story = GUESS_STORIES.get(char["name"]) or char["story"] or ""
+            taste = char["taste"] or ""
+            chain.append(Comp.Plain(f"{story}{taste}"))
+        img = (self.image_dir / char["file"]).with_suffix(".jpg")
+        if img.exists():
+            chain.append(Comp.Image.fromFileSystem(str(img)))
+        return chain
+
+    def _handle_quiz(self, quiz, text, event) -> list:
+        """抢答模式处理一条消息；答错返回空列表（静默）。"""
+        user_id = event.get_sender_id()
+        name = event.get_sender_name() or user_id
+
+        if text in END_KEYWORDS:
+            return [[Comp.Plain(self._quiz_finish(quiz, timed_out=False))]]
+
+        if text in TIP_KEYWORDS:
+            if quiz.get("stage") != "quizzing":
+                return []
+            tip = self._give_tip(quiz)
+            if tip is None:
+                return [[Comp.Plain("没有更多提示了，再想想～")]]
+            return [[Comp.Plain(tip)]]
+
+        if quiz["stage"] == "select_mode":
+            return self._quiz_select(quiz, text)
+
+        char = quiz.get("current")
+        if not char:
+            return []
+
+        if self._is_answer(text, char["name"]):
+            rec = quiz["scores"].get(user_id)
+            if rec is None:
+                rec = {"name": name, "score": 0, "order": len(quiz["scores"])}
+                quiz["scores"][user_id] = rec
+            rec["name"] = name
+            rec["score"] += QUIZ_POINTS
+            self._cancel_timeout(quiz)
+            head = f"✅ {name} 抢答成功！答案是「{char['name']}」，+{QUIZ_POINTS} 分（累计 {rec['score']} 分）"
+            return [[Comp.Plain(head)], self._quiz_ask(quiz)]
+
+        # 答错：静默，不回应
+        return []
+
+    def _quiz_finish(self, quiz, timed_out: bool) -> str:
+        """抢答模式结算：授予称号，不写入积分榜单。"""
+        group_id = quiz["group_id"]
+        if group_id not in _quiz_games or _quiz_games[group_id] is not quiz:
+            return ""
+        _quiz_games.pop(group_id, None)
+        self._cancel_timeout(quiz)
+
+        entries = sorted(
+            quiz["scores"].items(),
+            key=lambda kv: (-kv[1]["score"], kv[1].get("order", 999)),
+        )
+        answer = quiz["current"]["name"] if quiz.get("current") else ""
+        mode_name = "看图" if quiz.get("mode") == "image" else "描述"
+
+        lines = []
+        lines.append("⏰ 时间到，人事部档案审核结束！" if timed_out else "📋 人事部档案审核结束！")
+        lines.append(f"本场玩法：{mode_name}模式")
+        if answer:
+            lines.append(f"最后一题未答出的角色是：{answer}")
+
+        if not entries:
+            lines.append("")
+            lines.append("本场无人得分，全员「普通博士」。")
+            return "\n".join(lines)
+
+        icons = {1: "👑", 2: "⭐", 3: "🐴"}
+        lines.append("")
+        lines.append("🏅 称号授予：")
+        for i, (uid, rec) in enumerate(entries, 1):
+            if i <= len(QUIZ_TITLES):
+                title = QUIZ_TITLES[i - 1]
+                icon = icons.get(i, "🏅")
+            else:
+                title = QUIZ_DEFAULT_TITLE
+                icon = "📄"
+            lines.append(f"{icon} {title}：{rec['name']}（{rec['score']} 分）")
+
+        lines.append("")
+        lines.append("（本场不计入积分榜单，称号仅本次结算授予）")
+        return "\n".join(lines)
+
+    async def _quiz_on_timeout(self, quiz):
+        await asyncio.sleep(ANSWER_TIMEOUT)
+        cur = quiz.get("current") or {}
+        logger.info(
+            f"[FootPlugin] 抢答超时 group={quiz['group_id']} current={cur.get('name') if cur else 'None'}"
+        )
+        if quiz["group_id"] in _quiz_games and _quiz_games[quiz["group_id"]] is quiz:
+            text = self._quiz_finish(quiz, timed_out=True)
+            if not text:
+                return
+            group_id = quiz["group_id"]
+            _pending_settlements[group_id] = text
+            ok = await self._send_group(quiz, text)
+            if ok:
+                _pending_settlements.pop(group_id, None)
+            else:
+                logger.info(
+                    f"[FootPlugin] 抢答结算主动发送失败，已挂起待补发 group={group_id}"
+                )
+
     @filter.command("积分排行", alias={"排行榜", "积分榜"})
     async def score_rank(self, event: AstrMessageEvent):
         group_id = event.get_group_id()
@@ -212,6 +396,18 @@ class FootPlugin(Star):
         """捕获活动中的回答（无需 @ 机器人，直接发角色名/结束）。"""
         group_id = event.get_group_id()
         if not group_id:
+            return
+
+        # 抢答模式优先（全员参与，需要实时响应）
+        if group_id in _quiz_games:
+            quiz = _quiz_games[group_id]
+            text = (event.get_message_str() or "").strip()
+            if not text:
+                return
+            if text[0] in _WAKE_PREFIX_CHARS:
+                return
+            for chain in self._handle_quiz(quiz, text, event):
+                yield event.chain_result(chain)
             return
 
         # 补发超时结算消息（主动发送失败时的兜底，借本次消息的响应通道发出）
@@ -351,9 +547,14 @@ class FootPlugin(Star):
 
     @staticmethod
     def _is_answer(text: str, answer: str) -> bool:
-        """判定回答是否正确：精确匹配，或答案名包含在用户输入里。"""
+        """判定回答是否正确：精确匹配，或答案名包含在用户输入里。
+
+        单字答案（如「W」）要求完全一致，避免任何含该字符的话被误判为答对。
+        """
         if not text or not answer:
             return False
+        if len(answer) <= 1:
+            return text == answer
         return text == answer or answer in text
 
     def _cancel_timeout(self, game):
