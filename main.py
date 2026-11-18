@@ -79,7 +79,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审核抢答",
-    "2.3.0",
+    "2.3.1",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -558,9 +558,19 @@ class FootPlugin(Star):
         return text == answer or answer in text
 
     def _cancel_timeout(self, game):
+        """取消超时任务。
+
+        注意：超时结算本身就是在 timeout_task 里执行的，此时不能 cancel 自己，
+        否则后续 await（发送结算消息）会被 CancelledError 打断，导致结算发不出去。
+        """
         task = game.get("timeout_task")
         if task and not task.done():
-            task.cancel()
+            try:
+                current = asyncio.current_task()
+            except RuntimeError:
+                current = None
+            if task is not current:
+                task.cancel()
         game["timeout_task"] = None
 
     async def _on_timeout(self, game):
