@@ -110,6 +110,15 @@ PRIESTESS_GLITCH_TEXT = (
 PRIESTESS_GLITCH_RATE = 0.02                 # 2% 概率
 PRIESTESS_GLITCH_COOLDOWN = 30 * 24 * 60 * 60  # 同群 30 天内不再触发
 
+# 逐句发送的默认间隔（秒）与故障彩蛋的特例间隔
+DEFAULT_LINE_DELAY = (1.1, 2.1)
+# key = 第 i 句发完后到第 i+1 句的等待；None 表示走默认
+PRIESTESS_GLITCH_DELAYS = {
+    2: (3.5, 4.8),   # 第 3 句 → 第 4 句：卡住一下
+    8: (3.0, 4.2),   # 倒数第 3 句 → 倒数第 2 句
+    9: (4.2, 5.5),   # 倒数第 2 句 → 最后一句：最久
+}
+
 # 彩蛋状态文件（记录每个群上次触发时间，持久化，重启不丢）
 _PRIESTESS_DATA_DIR = Path(get_astrbot_plugin_data_path()) / "astrbot_plugin_foot"
 PRIESTESS_STATE_PATH = _PRIESTESS_DATA_DIR / "priestess_egg.json"
@@ -128,7 +137,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
-    "2.3.10",
+    "2.3.11",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -165,11 +174,12 @@ class FootPlugin(Star):
     @filter.command("看看脚", alias={"看看足", "看看jio"})
     async def foot(self, event: AstrMessageEvent):
         kw = self._keyword(event)
-        lines = self._priestess_egg(event, kw)
-        if lines is None:
-            lines = self._priestess_glitch(event)
-        if lines is not None:
-            async for msg in self._emit_lines(event, lines):
+        payload = self._priestess_egg(event, kw)
+        if payload is None:
+            payload = self._priestess_glitch(event)
+        if payload is not None:
+            lines, delays = payload
+            async for msg in self._emit_lines(event, lines, delays):
                 yield msg
             return
         yield event.chain_result(self._build_chain(kw))
@@ -182,11 +192,12 @@ class FootPlugin(Star):
         char_kw, wake_kw = self._split(event)
         if not wake_kw:
             return
-        lines = self._priestess_egg(event, char_kw)
-        if lines is None:
-            lines = self._priestess_glitch(event)
-        if lines is not None:
-            async for msg in self._emit_lines(event, lines):
+        payload = self._priestess_egg(event, char_kw)
+        if payload is None:
+            payload = self._priestess_glitch(event)
+        if payload is not None:
+            lines, delays = payload
+            async for msg in self._emit_lines(event, lines, delays):
                 yield msg
             return
         yield event.chain_result(self._build_chain(char_kw))
@@ -207,19 +218,21 @@ class FootPlugin(Star):
         use_glitch = arg in {"故障", "乱码", "2", "b", "B", "glitch", "Glitch"}
         src = PRIESTESS_GLITCH_TEXT if use_glitch else PRIESTESS_EGG_TEXT
         lines = [x for x in src.split("\n\n") if x]
+        delays = PRIESTESS_GLITCH_DELAYS if use_glitch else None
         logger.info(
             f"[FootPlugin] 彩蛋测试触发 type={'故障' if use_glitch else '点名'} group={event.get_group_id()}"
         )
-        async for msg in self._emit_lines(event, lines):
+        async for msg in self._emit_lines(event, lines, delays):
             yield msg
 
-    async def _emit_lines(self, event: AstrMessageEvent, lines):
-        """逐句发送彩蛋，句间随机停顿，像信号一点点挤出来。"""
+    async def _emit_lines(self, event: AstrMessageEvent, lines, delays=None):
+        """逐句发送彩蛋，句间随机停顿；delays 可指定个别间隔更长。"""
         total = len(lines)
         for i, line in enumerate(lines):
             yield event.plain_result(line)
             if i < total - 1:
-                await asyncio.sleep(random.uniform(1.1, 2.1))
+                span = (delays or {}).get(i) or DEFAULT_LINE_DELAY
+                await asyncio.sleep(random.uniform(*span))
 
     # ════════════════════════════════════════════
     # 积分猜角色
@@ -860,7 +873,7 @@ class FootPlugin(Star):
         state[scope] = now
         self._save_priestess_state(state)
         logger.info(f"[FootPlugin] 普瑞赛斯彩蛋触发 scope={scope}")
-        return [x for x in PRIESTESS_EGG_TEXT.split("\n\n") if x]
+        return ([x for x in PRIESTESS_EGG_TEXT.split("\n\n") if x], None)
 
     def _priestess_glitch(self, event: AstrMessageEvent):
         """普通「看看脚」的低频彩蛋：2% 概率触发，同群 30 天一次；否则 None。"""
@@ -882,7 +895,7 @@ class FootPlugin(Star):
         state[key] = now
         self._save_priestess_state(state)
         logger.info(f"[FootPlugin] 普瑞赛斯乱码彩蛋触发 scope={scope}")
-        return [x for x in PRIESTESS_GLITCH_TEXT.split("\n\n") if x]
+        return ([x for x in PRIESTESS_GLITCH_TEXT.split("\n\n") if x], PRIESTESS_GLITCH_DELAYS)
 
     @staticmethod
     def _load_priestess_state() -> dict:
