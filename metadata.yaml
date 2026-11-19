@@ -1,7 +1,7 @@
 name: astrbot_plugin_foot
 display_name: 是啊，吃什么（明日方舟版）
 desc: 识别到"看看脚/看看足/看看jio"关键词，随机推荐饭盒（bushi）；附带群聊积分猜角色(/猜角色、/积分排行、/重置历史)与全员抢答「/人事部档案审查」「/抢答」
-version: v2.3.11
+version: v2.3.12
 author: stranger114514
 repo: https://github.com/stranger114514/astrbot_plugin_foot
 tags: [明日方舟, 娱乐, 随机, 图片, 积分, 猜角色]
