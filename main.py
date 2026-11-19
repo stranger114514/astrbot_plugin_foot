@@ -128,7 +128,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
-    "2.3.7",
+    "2.3.8",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -190,6 +190,28 @@ class FootPlugin(Star):
                 yield msg
             return
         yield event.chain_result(self._build_chain(char_kw))
+
+    @filter.command("彩蛋测试", alias={"测试彩蛋"})
+    async def egg_test(self, event: AstrMessageEvent):
+        """测试用：立刻播放彩蛋全文，不写入冷却记录。
+
+        /彩蛋测试        → 点名彩蛋（普瑞塞斯那段）
+        /彩蛋测试 故障   → 2% 故障彩蛋
+        """
+        raw = (event.get_message_str() or "").strip().lstrip(_WAKE_PREFIX_CHARS).strip()
+        arg = ""
+        for kw in ("彩蛋测试", "测试彩蛋"):
+            if raw.startswith(kw):
+                arg = raw[len(kw):].strip()
+                break
+        use_glitch = arg in {"故障", "乱码", "2", "b", "B", "glitch", "Glitch"}
+        src = PRIESTESS_GLITCH_TEXT if use_glitch else PRIESTESS_EGG_TEXT
+        lines = [x for x in src.split("\n\n") if x]
+        logger.info(
+            f"[FootPlugin] 彩蛋测试触发 type={'故障' if use_glitch else '点名'} group={event.get_group_id()}"
+        )
+        async for msg in self._emit_lines(event, lines):
+            yield msg
 
     async def _emit_lines(self, event: AstrMessageEvent, lines):
         """逐句发送彩蛋，句间随机停顿，像信号一点点挤出来。"""
@@ -757,8 +779,14 @@ class FootPlugin(Star):
     # ════════════════════════════════════════════
 
     def _build_chain(self, keyword: str) -> list:
-        """按关键词挑角色并拼出「一段话风味描述 + 脚部图」消息链。"""
+        """按关键词挑角色并拼出「一段话风味描述 + 脚部图」消息链。
+
+        点名了却查不到时，直接说明罗德岛没有这位干员，不再随机糊弄。
+        """
         char = self._pick(keyword)
+        if char is None:
+            return [Comp.Plain(f"罗德岛上没有「{keyword}」这位干员")]
+
         story = char["story"] or self._fill(random.choice(STORIES), char)
         taste = char["taste"] or random.choice(TASTE)
 
@@ -788,12 +816,13 @@ class FootPlugin(Star):
         char_kw, _ = self._split(event)
         return char_kw
 
-    def _pick(self, keyword: str) -> dict:
-        """随机选一名角色；带关键词时按名字模糊匹配。"""
+    def _pick(self, keyword: str):
+        """随机选一名角色；带关键词时按名字模糊匹配，匹配不到返回 None。"""
         if keyword:
             matched = [c for c in self.characters if keyword in c["name"]]
             if matched:
                 return random.choice(matched)
+            return None
         if not self.characters:
             raise RuntimeError("图库为空")
         return random.choice(self.characters)
