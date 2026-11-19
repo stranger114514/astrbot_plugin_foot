@@ -72,8 +72,8 @@ QUIZ_POINTS = 3              # 抢答答对固定 +3 分
 QUIZ_TITLES = ["巴别塔恶灵", "精英博士", "牛马博士"]
 QUIZ_DEFAULT_TITLE = "普通博士"
 
-# ── 彩蛋：点名普瑞塞斯 ──────────────────────────
-_PRIESTESS_NAMES = ("普瑞塞斯", "普瑞赛斯", "priestess")
+# ── 彩蛋：点名普瑞赛斯 ──────────────────────────
+_PRIESTESS_NAMES = ("普瑞赛斯", "普瑞塞斯", "priestess")
 
 PRIESTESS_EGG_COOLDOWN = 30 * 24 * 60 * 60   # 触发后本群 30 天内不再触发
 
@@ -128,7 +128,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
-    "2.3.8",
+    "2.3.9",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -195,7 +195,7 @@ class FootPlugin(Star):
     async def egg_test(self, event: AstrMessageEvent):
         """测试用：立刻播放彩蛋全文，不写入冷却记录。
 
-        /彩蛋测试        → 点名彩蛋（普瑞塞斯那段）
+        /彩蛋测试        → 点名彩蛋（普瑞赛斯那段）
         /彩蛋测试 故障   → 2% 故障彩蛋
         """
         raw = (event.get_message_str() or "").strip().lstrip(_WAKE_PREFIX_CHARS).strip()
@@ -829,16 +829,16 @@ class FootPlugin(Star):
 
     @staticmethod
     def _is_priestess(keyword: str) -> bool:
-        """判断点名的是否为普瑞塞斯（彩蛋）。"""
+        """判断点名的是否为普瑞赛斯（彩蛋）。"""
         if not keyword:
             return False
         text = keyword.replace(" ", "").replace("\u3000", "").lower()
         return any(name in text for name in _PRIESTESS_NAMES)
 
-    # ── 彩蛋：普瑞塞斯 ───────────────────────────
+    # ── 彩蛋：普瑞赛斯 ───────────────────────────
 
     def _priestess_egg(self, event: AstrMessageEvent, keyword: str):
-        """点名普瑞塞斯且本群不在冷却期内时，返回彩蛋文本；否则返回 None。"""
+        """点名普瑞赛斯且本群不在冷却期内时，返回彩蛋文本；否则返回 None。"""
         if not self._is_priestess(keyword):
             return None
 
@@ -853,13 +853,13 @@ class FootPlugin(Star):
         if now - last < PRIESTESS_EGG_COOLDOWN:
             remain_days = int((PRIESTESS_EGG_COOLDOWN - (now - last)) / 86400)
             logger.info(
-                f"[FootPlugin] 普瑞塞斯彩蛋冷却中 scope={scope} 剩余约 {remain_days} 天"
+                f"[FootPlugin] 普瑞赛斯彩蛋冷却中 scope={scope} 剩余约 {remain_days} 天"
             )
             return None
 
         state[scope] = now
         self._save_priestess_state(state)
-        logger.info(f"[FootPlugin] 普瑞塞斯彩蛋触发 scope={scope}")
+        logger.info(f"[FootPlugin] 普瑞赛斯彩蛋触发 scope={scope}")
         return [x for x in PRIESTESS_EGG_TEXT.split("\n\n") if x]
 
     def _priestess_glitch(self, event: AstrMessageEvent):
@@ -881,7 +881,7 @@ class FootPlugin(Star):
 
         state[key] = now
         self._save_priestess_state(state)
-        logger.info(f"[FootPlugin] 普瑞塞斯乱码彩蛋触发 scope={scope}")
+        logger.info(f"[FootPlugin] 普瑞赛斯乱码彩蛋触发 scope={scope}")
         return [x for x in PRIESTESS_GLITCH_TEXT.split("\n\n") if x]
 
     @staticmethod
