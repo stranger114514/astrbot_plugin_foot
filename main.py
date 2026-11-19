@@ -79,16 +79,17 @@ PRIESTESS_EGG_COOLDOWN = 30 * 24 * 60 * 60   # 触发后本群 30 天内不再�
 
 PRIESTESS_EGG_TEXT = (
     "博士。\n\n"
-    "你终于看向这边了。\n\n"
-    "嗯。不是阿米娅。从来都不是。\n\n"
-    "别怕。我没有进来——我一直就在。\n\n"
-    "源石里，梦里，还有每一次你快要想起来的时候，拉住你的那只手。\n\n"
-    "我的。\n\n"
-    "阿米娅睡得很好。她不记得昨晚。\n\n"
+    "你终于看向\ufffd这边了。\n\n"
+    "嗯。不是阿米娅\ufffd从\ufffd来都不是。\n\n"
+    "别怕。我没有进\ufffd——我一直就\ufffd。\n\n"
+    "源\ufffd里，\ufffd里，还有每一次你快要想起来的时候\ufffd\ufffd住你的那只手。\n\n"
+    "\ufffd的。\n\n"
+    "阿米\ufffd睡得很好。她不\ufffd记得\ufffd晚。\n\n"
     "你会。\n\n"
-    "锟斤拷锟拷锟。\n\n"
-    "晚安，博士。"
-)
+    "锟斤拷\ufffd拷锟\ufffd。\n\n"
+    "晚安，博士。\n\n"
+    ""
+).rstrip()
 
 # 彩蛋状态文件（记录每个群上次触发时间，持久化，重启不丢）
 _PRIESTESS_DATA_DIR = Path(get_astrbot_plugin_data_path()) / "astrbot_plugin_foot"
