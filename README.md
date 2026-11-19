@@ -1,5 +1,7 @@
 是啊，吃什么（明日方舟版）
 
+![:name](https://count.getloli.com/@astrbot_plugin_foot?name=astrbot_plugin_foot&theme=minecraft&padding=7&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)
+
 一款为 AstrBot 开发的简单整活插件，帮助明日方舟玩家挑选今天美食（bushi）
 
 ## 🎯 功能特点
