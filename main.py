@@ -102,7 +102,7 @@ PRIESTESS_GLITCH_TEXT = (
     "源石里也有我的\ufffd脚\ufffd锟\ufffd\n\n"
     "你从来不看\ufffd\n\n"
     "你不认识\ufffd了？□\n\n"
-    "你明明记得我，不…\n\n"
+    "你明明记得我，不是吗？"
     ""
 ).rstrip()
 
@@ -128,7 +128,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
-    "2.3.9",
+    "2.3.10",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
