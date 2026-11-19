@@ -18,7 +18,10 @@ import asyncio
 import json
 import random
 import urllib.request
+import time
 from pathlib import Path
+
+from astrbot.core.utils.astrbot_path import get_astrbot_plugin_data_path
 
 from astrbot.api.event import AstrMessageEvent, filter, MessageChain
 from astrbot.api.star import Context, Star, register
@@ -69,6 +72,28 @@ QUIZ_POINTS = 3              # 抢答答对固定 +3 分
 QUIZ_TITLES = ["巴别塔恶灵", "精英博士", "牛马博士"]
 QUIZ_DEFAULT_TITLE = "普通博士"
 
+# ── 彩蛋：点名普瑞塞斯 ──────────────────────────
+_PRIESTESS_NAMES = ("普瑞塞斯", "普瑞赛斯", "priestess")
+
+PRIESTESS_EGG_COOLDOWN = 30 * 24 * 60 * 60   # 触发后本群 30 天内不再触发
+
+PRIESTESS_EGG_TEXT = (
+    "博士。\n\n"
+    "你终于看向这边了。\n\n"
+    "嗯。不是阿米娅。从来都不是。\n\n"
+    "别怕。我没有进来——我一直就在。\n\n"
+    "源石里，梦里，还有每一次你快要想起来的时候，拉住你的那只手。\n\n"
+    "我的。\n\n"
+    "阿米娅睡得很好。她不记得昨晚。\n\n"
+    "你会。\n\n"
+    "锟斤拷锟拷锟。\n\n"
+    "晚安，博士。"
+)
+
+# 彩蛋状态文件（记录每个群上次触发时间，持久化，重启不丢）
+_PRIESTESS_DATA_DIR = Path(get_astrbot_plugin_data_path()) / "astrbot_plugin_foot"
+PRIESTESS_STATE_PATH = _PRIESTESS_DATA_DIR / "priestess_egg.json"
+
 # 活动状态（内存）：group_id -> game dict
 _games: dict[str, dict] = {}
 
@@ -83,7 +108,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
-    "2.3.4",
+    "2.3.5",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -119,7 +144,12 @@ class FootPlugin(Star):
 
     @filter.command("看看脚", alias={"看看足", "看看jio"})
     async def foot(self, event: AstrMessageEvent):
-        yield event.chain_result(self._build_chain(self._keyword(event)))
+        kw = self._keyword(event)
+        egg = self._priestess_egg(event, kw)
+        if egg is not None:
+            yield event.plain_result(egg)
+            return
+        yield event.chain_result(self._build_chain(kw))
 
     @filter.regex(_BARE_RE)
     async def foot_bare(self, event: AstrMessageEvent):
@@ -128,6 +158,10 @@ class FootPlugin(Star):
             return
         char_kw, wake_kw = self._split(event)
         if not wake_kw:
+            return
+        egg = self._priestess_egg(event, char_kw)
+        if egg is not None:
+            yield event.plain_result(egg)
             return
         yield event.chain_result(self._build_chain(char_kw))
 
@@ -729,6 +763,62 @@ class FootPlugin(Star):
         if not self.characters:
             raise RuntimeError("图库为空")
         return random.choice(self.characters)
+
+    @staticmethod
+    def _is_priestess(keyword: str) -> bool:
+        """判断点名的是否为普瑞塞斯（彩蛋）。"""
+        if not keyword:
+            return False
+        text = keyword.replace(" ", "").replace("\u3000", "").lower()
+        return any(name in text for name in _PRIESTESS_NAMES)
+
+    # ── 彩蛋：普瑞塞斯 ───────────────────────────
+
+    def _priestess_egg(self, event: AstrMessageEvent, keyword: str):
+        """点名普瑞塞斯且本群不在冷却期内时，返回彩蛋文本；否则返回 None。"""
+        if not self._is_priestess(keyword):
+            return None
+
+        scope = event.get_group_id() or f"private:{event.get_sender_id()}"
+        state = self._load_priestess_state()
+        now = time.time()
+        try:
+            last = float(state.get(scope) or 0)
+        except (TypeError, ValueError):
+            last = 0.0
+
+        if now - last < PRIESTESS_EGG_COOLDOWN:
+            remain_days = int((PRIESTESS_EGG_COOLDOWN - (now - last)) / 86400)
+            logger.info(
+                f"[FootPlugin] 普瑞塞斯彩蛋冷却中 scope={scope} 剩余约 {remain_days} 天"
+            )
+            return None
+
+        state[scope] = now
+        self._save_priestess_state(state)
+        logger.info(f"[FootPlugin] 普瑞塞斯彩蛋触发 scope={scope}")
+        return PRIESTESS_EGG_TEXT
+
+    @staticmethod
+    def _load_priestess_state() -> dict:
+        if PRIESTESS_STATE_PATH.exists():
+            try:
+                data = json.loads(PRIESTESS_STATE_PATH.read_text(encoding="utf-8"))
+                if isinstance(data, dict):
+                    return data
+            except Exception:
+                pass
+        return {}
+
+    @staticmethod
+    def _save_priestess_state(state: dict) -> None:
+        try:
+            _PRIESTESS_DATA_DIR.mkdir(parents=True, exist_ok=True)
+            PRIESTESS_STATE_PATH.write_text(
+                json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except Exception as exc:
+            logger.warning(f"[FootPlugin] 彩蛋状态保存失败: {exc}")
 
     @staticmethod
     def _fill(template: str, char: dict) -> str:
