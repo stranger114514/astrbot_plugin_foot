@@ -1,5 +1,11 @@
 # 更新日志
 
+## v2.3.13
+
+### 变更
+- NapCat HTTP API 地址改为可配置项 `napcat_api`（默认 `http://127.0.0.1:3000`），非 NapCat 环境可在面板调整
+- 统一 `@register` 装饰器 author 为 `stranger114514`，与 `metadata.yaml` 保持一致
+
 ## v2.3.12
 
 ### 变更

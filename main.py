@@ -55,6 +55,7 @@ _BARE_RE = r"^看"
 
 # ── 积分猜角色参数 ──────────────────────────────
 ANSWER_TIMEOUT = 120         # 每道题限时（秒）
+DEFAULT_NAPCAT_API = "http://127.0.0.1:3000"   # 超时结算主动发送用的本机接口
 POINTS_IMAGE = 5             # 看图猜角色，答对一题 +5
 POINTS_DESC = 3              # 图+描述猜角色，答对一题 +3
 SELECT_MODE_KEYWORDS = {"看图", "描述", "图", "文字", "文字描述", "带描述"}
@@ -145,9 +146,9 @@ _pending_settlements: dict[str, str] = {}
 
 @register(
     "astrbot_plugin_foot",
-    "yg",
+    "stranger114514",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
-    "2.3.12",
+    "2.3.13",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -159,6 +160,9 @@ class FootPlugin(Star):
             self.wake_keywords = list(DEFAULT_KEYWORDS)
         # 长词优先匹配，避免「看看脚」被「看」抢走
         self.wake_keywords.sort(key=len, reverse=True)
+
+        api = cfg.get("napcat_api")
+        self.napcat_api = str(api).strip().rstrip("/") if isinstance(api, str) and api.strip() else DEFAULT_NAPCAT_API
 
         self.gallery = load_gallery()
         self.characters = build_characters(self.gallery)
@@ -174,6 +178,9 @@ class FootPlugin(Star):
 
     def reload(self):
         """面板改动后重载图库。"""
+        api = cfg.get("napcat_api")
+        self.napcat_api = str(api).strip().rstrip("/") if isinstance(api, str) and api.strip() else DEFAULT_NAPCAT_API
+
         self.gallery = load_gallery()
         self.characters = build_characters(self.gallery)
 
@@ -785,7 +792,7 @@ class FootPlugin(Star):
             }
         ).encode("utf-8")
         req = urllib.request.Request(
-            "http://127.0.0.1:3000/send_group_msg",
+            f"{self.napcat_api}/send_group_msg",
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST",

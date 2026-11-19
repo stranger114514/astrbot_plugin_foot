@@ -2,6 +2,16 @@
   "keywords": {
     "description": "唤醒词",
     "type": "list",
-    "default": ["看看脚", "看看足", "看看jio"]
+    "default": [
+      "看看脚",
+      "看看足",
+      "看看jio"
+    ]
+  },
+  "napcat_api": {
+    "description": "NapCat HTTP API 地址",
+    "type": "string",
+    "hint": "超时结算主动发送消息用的本机接口，默认 http://127.0.0.1:3000。非 NapCat 或改过端口时在此调整；留空则禁用主动发送（改为下次发言补发）",
+    "default": "http://127.0.0.1:3000"
   }
 }
