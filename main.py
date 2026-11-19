@@ -128,7 +128,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
-    "2.3.6",
+    "2.3.7",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -165,13 +165,12 @@ class FootPlugin(Star):
     @filter.command("看看脚", alias={"看看足", "看看jio"})
     async def foot(self, event: AstrMessageEvent):
         kw = self._keyword(event)
-        egg = self._priestess_egg(event, kw)
-        if egg is not None:
-            yield event.plain_result(egg)
-            return
-        glitch = self._priestess_glitch(event)
-        if glitch is not None:
-            yield event.plain_result(glitch)
+        lines = self._priestess_egg(event, kw)
+        if lines is None:
+            lines = self._priestess_glitch(event)
+        if lines is not None:
+            async for msg in self._emit_lines(event, lines):
+                yield msg
             return
         yield event.chain_result(self._build_chain(kw))
 
@@ -183,15 +182,22 @@ class FootPlugin(Star):
         char_kw, wake_kw = self._split(event)
         if not wake_kw:
             return
-        egg = self._priestess_egg(event, char_kw)
-        if egg is not None:
-            yield event.plain_result(egg)
-            return
-        glitch = self._priestess_glitch(event)
-        if glitch is not None:
-            yield event.plain_result(glitch)
+        lines = self._priestess_egg(event, char_kw)
+        if lines is None:
+            lines = self._priestess_glitch(event)
+        if lines is not None:
+            async for msg in self._emit_lines(event, lines):
+                yield msg
             return
         yield event.chain_result(self._build_chain(char_kw))
+
+    async def _emit_lines(self, event: AstrMessageEvent, lines):
+        """逐句发送彩蛋，句间随机停顿，像信号一点点挤出来。"""
+        total = len(lines)
+        for i, line in enumerate(lines):
+            yield event.plain_result(line)
+            if i < total - 1:
+                await asyncio.sleep(random.uniform(1.1, 2.1))
 
     # ════════════════════════════════════════════
     # 积分猜角色
@@ -825,7 +831,7 @@ class FootPlugin(Star):
         state[scope] = now
         self._save_priestess_state(state)
         logger.info(f"[FootPlugin] 普瑞塞斯彩蛋触发 scope={scope}")
-        return PRIESTESS_EGG_TEXT
+        return [x for x in PRIESTESS_EGG_TEXT.split("\n\n") if x]
 
     def _priestess_glitch(self, event: AstrMessageEvent):
         """普通「看看脚」的低频彩蛋：2% 概率触发，同群 30 天一次；否则 None。"""
@@ -847,7 +853,7 @@ class FootPlugin(Star):
         state[key] = now
         self._save_priestess_state(state)
         logger.info(f"[FootPlugin] 普瑞塞斯乱码彩蛋触发 scope={scope}")
-        return PRIESTESS_GLITCH_TEXT
+        return [x for x in PRIESTESS_GLITCH_TEXT.split("\n\n") if x]
 
     @staticmethod
     def _load_priestess_state() -> dict:
