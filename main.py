@@ -91,6 +91,25 @@ PRIESTESS_EGG_TEXT = (
     ""
 ).rstrip()
 
+PRIESTESS_GLITCH_TEXT = (
+    "博士\ufffd\n\n"
+    "又在看小动\ufffd。\n\n"
+    "隔着源\ufffd我都看见了\ufffd锟斤拷。\n\n"
+    "一万\ufffd年前你就是这样看我的\ufffdï¿½\n\n"
+    "忘得掉\ufffd，忘不掉这个\ufffd\n\n"
+    "……我没有生气。只是有点\ufffd奈\ufffd\n\n"
+    "算了。你▇看吧。\n\n"
+    "源石里也有我的\ufffd脚\ufffd锟\ufffd\n\n"
+    "你从来不看\ufffd\n\n"
+    "你不认识\ufffd了？□\n\n"
+    "你明明记得我，不…\n\n"
+    ""
+).rstrip()
+
+# 普通「看看脚」触发的低频乱码彩蛋
+PRIESTESS_GLITCH_RATE = 0.02                 # 2% 概率
+PRIESTESS_GLITCH_COOLDOWN = 30 * 24 * 60 * 60  # 同群 30 天内不再触发
+
 # 彩蛋状态文件（记录每个群上次触发时间，持久化，重启不丢）
 _PRIESTESS_DATA_DIR = Path(get_astrbot_plugin_data_path()) / "astrbot_plugin_foot"
 PRIESTESS_STATE_PATH = _PRIESTESS_DATA_DIR / "priestess_egg.json"
@@ -109,7 +128,7 @@ _pending_settlements: dict[str, str] = {}
     "astrbot_plugin_foot",
     "yg",
     "看看脚/看看足/看看jio 触发，随机发送明日方舟角色风味文案 + 立绘裁剪图；含猜角色与人事部档案审查抢答",
-    "2.3.5",
+    "2.3.6",
 )
 class FootPlugin(Star):
     def __init__(self, context: Context, config: dict | None = None):
@@ -150,6 +169,10 @@ class FootPlugin(Star):
         if egg is not None:
             yield event.plain_result(egg)
             return
+        glitch = self._priestess_glitch(event)
+        if glitch is not None:
+            yield event.plain_result(glitch)
+            return
         yield event.chain_result(self._build_chain(kw))
 
     @filter.regex(_BARE_RE)
@@ -163,6 +186,10 @@ class FootPlugin(Star):
         egg = self._priestess_egg(event, char_kw)
         if egg is not None:
             yield event.plain_result(egg)
+            return
+        glitch = self._priestess_glitch(event)
+        if glitch is not None:
+            yield event.plain_result(glitch)
             return
         yield event.chain_result(self._build_chain(char_kw))
 
@@ -799,6 +826,28 @@ class FootPlugin(Star):
         self._save_priestess_state(state)
         logger.info(f"[FootPlugin] 普瑞塞斯彩蛋触发 scope={scope}")
         return PRIESTESS_EGG_TEXT
+
+    def _priestess_glitch(self, event: AstrMessageEvent):
+        """普通「看看脚」的低频彩蛋：2% 概率触发，同群 30 天一次；否则 None。"""
+        scope = event.get_group_id() or f"private:{event.get_sender_id()}"
+        key = f"glitch:{scope}"
+        state = self._load_priestess_state()
+        now = time.time()
+        try:
+            last = float(state.get(key) or 0)
+        except (TypeError, ValueError):
+            last = 0.0
+
+        # 冷却期内直接跳过，不消耗随机数
+        if now - last < PRIESTESS_GLITCH_COOLDOWN:
+            return None
+        if random.random() >= PRIESTESS_GLITCH_RATE:
+            return None
+
+        state[key] = now
+        self._save_priestess_state(state)
+        logger.info(f"[FootPlugin] 普瑞塞斯乱码彩蛋触发 scope={scope}")
+        return PRIESTESS_GLITCH_TEXT
 
     @staticmethod
     def _load_priestess_state() -> dict:
